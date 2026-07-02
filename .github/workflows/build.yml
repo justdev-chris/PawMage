@@ -1,4 +1,4 @@
-name: PawMage 
+name: PawMage - Full Cross-Platform Build
 
 on:
   push:
@@ -12,70 +12,51 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential make gcc g++ \
-            python3 python3-pip python3-venv \
-            fakeroot dpkg-dev rpm
-
-      - name: Build core (libpawm + converter)
-        run: make -j$(nproc)
-
-      - name: Package Linux (.deb)
+      - run: |
+          sudo apt-get update && sudo apt-get install -y build-essential make gcc g++ python3-pip fakeroot dpkg-dev
+          make -j$(nproc)
+      - name: Package .deb
         run: |
           mkdir -p build-deb/usr/bin build-deb/DEBIAN
-          cp pawm-convert/pawm-convert build-deb/usr/bin/pawm-convert
-          
+          cp pawm-convert/pawm-convert build-deb/usr/bin/
           cat > build-deb/DEBIAN/control << EOF
           Package: pawmage
           Version: 1.0.0
-          Section: utils
-          Priority: optional
-          Architecture: amd64
           Maintainer: justdev-chris
-          Description: PawMage lossless image format with tools
+          Architecture: amd64
+          Description: PawMage lossless image format tools
           EOF
-          
           dpkg-deb --build build-deb pawmage-linux.deb
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: pawmage-linux
-          path: |
-            pawm-convert/pawm-convert
-            pawmage-linux.deb
-          retention-days: 30
+          path: pawmage-linux.deb
 
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Inno Setup
+      - name: Install tools
         run: choco install innosetup -y
-
-      - name: Build PawMage components
+      - name: Build C parts
         shell: bash
         run: |
           make -C libpawm
           make -C pawm-convert
-
-      - name: Build Windows Installer (modular)
+      - name: Build GUI Viewer (PyInstaller)
+        shell: bash
+        working-directory: pawm-view
+        run: |
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --onefile --windowed --noconsole --icon=../images/ico/PawMageViewerIcon.ico viewer.py -n pawm-view
+      - name: Build Installer
         shell: cmd
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\windows\installer.iss
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: pawmage-windows
-          path: |
-            installers/windows/Output/*.exe
-          retention-days: 30
+          path: installers/windows/Output/PawMage-Setup.exe
 
   build-macos:
     runs-on: macos-latest
@@ -84,34 +65,36 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install make gcc python3
+          brew install make gcc python3 pyinstaller
 
-      - name: Build core components
+      - name: Build C parts
         run: make -j$(sysctl -n hw.ncpu)
+
+      - name: Build GUI Viewer (PyInstaller)
+        working-directory: pawm-view
+        run: |
+          pip install -r requirements.txt
+          pyinstaller --onefile --windowed --noconsole --icon=../images/ico/PawMageViewerIcon.ico viewer.py -n pawm-view
 
       - name: Create macOS .app Bundle
         run: |
           mkdir -p "PawMage.app/Contents/MacOS" "PawMage.app/Contents/Resources"
-          cp pawm-convert/pawm-convert "PawMage.app/Contents/MacOS/PawMage"
-          
-          cat > "PawMage.app/Contents/Info.plist" << EOF
+          cp pawm-view/dist/pawm-view "PawMage.app/Contents/MacOS/PawMage"
+          cat > "PawMage.app/Contents/Info.plist" << 'EOL'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>CFBundleIdentifier</key>
-              <string>com.pawmage.app</string>
-              <key>CFBundleName</key>
-              <string>PawMage</string>
-              <key>CFBundleVersion</key>
-              <string>1.0.0</string>
-              <key>CFBundleExecutable</key>
-              <string>PawMage</string>
+              <key>CFBundleIdentifier</key><string>com.pawmage.app</string>
+              <key>CFBundleName</key><string>PawMage</string>
+              <key>CFBundleVersion</key><string>1.0.0</string>
+              <key>CFBundleExecutable</key><string>PawMage</string>
+              <key>CFBundleIconFile</key><string>PawMageIcon.icns</string>
           </dict>
           </plist>
-          EOF
+          EOL
 
-      - name: Build macOS .pkg
+      - name: Build .pkg installer
         run: |
           pkgbuild --root PawMage.app \
                    --identifier com.pawmage.app \
@@ -119,11 +102,9 @@ jobs:
                    --install-location /Applications \
                    PawMage.pkg
 
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: pawmage-macos
           path: |
             PawMage.app
             PawMage.pkg
-          retention-days: 30
