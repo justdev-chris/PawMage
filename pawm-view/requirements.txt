@@ -1,0 +1,5 @@
+# pawm-view/requirements.txt
+glfw
+PyOpenGL
+imgui
+numpy
