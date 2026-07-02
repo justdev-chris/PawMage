@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PawMage Web Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #0d0d1a;
+            color: #eee;
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 3rem auto;
+            padding: 0 1.5rem;
+            line-height: 1.6;
+        }
+        h1 {
+            font-size: 2.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+        }
+        .sub {
+            color: #888;
+            margin-bottom: 2rem;
+        }
+        .drop-zone {
+            border: 2px dashed #e94560;
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            background: #141425;
+        }
+        .drop-zone.dragover {
+            background: #1a1a3e;
+            border-color: #ff6b8a;
+        }
+        .drop-zone p {
+            font-size: 1.1rem;
+            color: #aaa;
+        }
+        .drop-zone .small {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        .preview-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-top: 2rem;
+            align-items: flex-start;
+        }
+        .preview-area canvas {
+            background: #1a1a2e;
+            border-radius: 12px;
+            border: 1px solid #2a2a4a;
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+        .info-panel {
+            flex: 1;
+            min-width: 200px;
+            background: #141425;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #2a2a4a;
+        }
+        .info-panel h3 {
+            color: #e94560;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+        .info-panel .detail {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin: 0.25rem 0;
+        }
+        .info-panel .detail span {
+            color: #eee;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+        .btn {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.4rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background: #ff5a7a;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .btn.secondary {
+            background: #2a2a4a;
+        }
+        .btn.secondary:hover {
+            background: #3a3a5a;
+        }
+        .btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .status {
+            margin-top: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .status.success {
+            color: #5fdf8a;
+            border-left: 3px solid #5fdf8a;
+        }
+        .status.error {
+            color: #e94560;
+            border-left: 3px solid #e94560;
+        }
+        .footer {
+            margin-top: 3rem;
+            color: #555;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        .footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🐱 PawMage Web Converter</h1>
+    <p class="sub">Convert images to <code>.pawm</code> and back — all in your browser.</p>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+        <p>📁 Drag & drop an image or <code>.pawm</code> file here</p>
+        <p class="small">or click to select a file</p>
+        <input type="file" id="fileInput" accept=".pawm,image/png,image/jpeg,image/bmp,image/tga" style="display:none;" />
+    </div>
+
+    <!-- Preview + Info -->
+    <div class="preview-area" id="previewArea" style="display:none;">
+        <canvas id="canvas"></canvas>
+        <div class="info-panel">
+            <h3>📋 Info</h3>
+            <div id="infoContent">
+                <div class="detail">Name: <span id="fileName">—</span></div>
+                <div class="detail">Size: <span id="fileSize">—</span></div>
+                <div class="detail">Dimensions: <span id="fileDims">—</span></div>
+                <div class="detail">Format: <span id="fileFormat">—</span></div>
+                <div id="metadataSection" style="display:none; margin-top:0.8rem;">
+                    <div style="color:#888;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;">Metadata</div>
+                    <pre id="metadataDisplay" style="font-size:0.75rem;color:#aaa;background:#0d0d1a;padding:0.5rem;border-radius:4px;max-height:120px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-top:0.3rem;"></pre>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn" id="downloadPawm" disabled>⬇ Download .pawm</button>
+                <button class="btn btn-secondary" id="downloadPng" disabled>⬇ Download PNG</button>
+                <button class="btn btn-secondary" id="resetBtn">↺ Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status" class="status">Ready</div>
+
+    <div class="footer">
+        Built with <a href="https://github.com/justchrisdevmeow/pawmage">PawMage</a> · MIT · 🐱
+    </div>
+
+    <!-- Load PawMage -->
+    <script src="pawm.js"></script>
+    <script>
+        (function() {
+            'use strict';
+
+            // ===== DOM refs =====
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const previewArea = document.getElementById('previewArea');
+            const statusEl = document.getElementById('status');
+
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const fileDims = document.getElementById('fileDims');
+            const fileFormat = document.getElementById('fileFormat');
+            const metadataSection = document.getElementById('metadataSection');
+            const metadataDisplay = document.getElementById('metadataDisplay');
+
+            const downloadPawm = document.getElementById('downloadPawm');
+            const downloadPng = document.getElementById('downloadPng');
+            const resetBtn = document.getElementById('resetBtn');
+
+            // ===== State =====
+            let currentPixels = null; // Uint8Array (raw RGBA)
+            let currentWidth = 0;
+            let currentHeight = 0;
+            let currentMetadata = {};
+            let currentIsPawm = false;
+            let currentFileName = '';
+
+            // ===== Helpers =====
+            function setStatus(msg, type) {
+                statusEl.textContent = msg;
+                statusEl.className = 'status';
+                if (type) statusEl.classList.add(type);
+            }
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+
+            function showPreview(imageData, width, height, metadata, fileName, isPawm) {
+                currentWidth = width;
+                currentHeight = height;
+                currentMetadata = metadata || {};
+                currentIsPawm = isPawm;
+                currentFileName = fileName;
+
+                // Set canvas size
+                const maxDim = 400;
+                let displayW = width;
+                let displayH = height;
+                if (displayW > maxDim || displayH > maxDim) {
+                    const scale = Math.min(maxDim / displayW, maxDim / displayH);
+                    displayW = Math.round(displayW * scale);
+                    displayH = Math.round(displayH * scale);
+                }
+                canvas.width = displayW;
+                canvas.height = displayH;
+
+                // Draw image
+                const imageDataObj = new ImageData(imageData, width, height);
+                ctx.clearRect(0, 0, displayW, displayH);
+                // Scale down using putImageData with drawImage
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imageDataObj, 0, 0);
+                ctx.drawImage(tempCanvas, 0, 0, displayW, displayH);
+
+                // Update info
+                fileName.textContent = fileName || '—';
+                fileSize.textContent = formatSize(imageData.byteLength);
+                fileDims.textContent = width + '×' + height;
+                fileFormat.textContent = isPawm ? '.pawm' : 'Image';
+
+                // Metadata
+                if (isPawm && metadata && Object.keys(metadata).length > 0) {
+                    metadataSection.style.display = 'block';
+                    metadataDisplay.textContent = JSON.stringify(metadata, null, 2);
+                } else {
+                    metadataSection.style.display = 'none';
+                }
+
+                previewArea.style.display = 'flex';
+                downloadPawm.disabled = false;
+                downloadPng.disabled = false;
+                setStatus('✅ Loaded ' + fileName + ' — ready to convert.', 'success');
+            }
+
+            function resetUI() {
+                previewArea.style.display = 'none';
+                downloadPawm.disabled = true;
+                downloadPng.disabled = true;
+                currentPixels = null;
+                currentWidth = 0;
+                currentHeight = 0;
+                currentMetadata = {};
+                currentIsPawm = false;
+                currentFileName = '';
+                setStatus('Ready', '');
+                canvas.width = 0;
+                canvas.height = 0;
+            }
+
+            // ===== Load image from File =====
+            function loadFile(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const buffer = e.target.result;
+                    const arrayBuf = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
+                    try {
+                        // Try to decode as .pawm
+                        const decoded = PawMage.decode(arrayBuf);
+                        // It's a .pawm
+                        const rgba = new Uint8Array(decoded.width * decoded.height * 4);
+                        const bpp = decoded.depth / 8;
+                        for (let y = 0; y < decoded.height; y++) {
+                            for (let x = 0; x < decoded.width; x++) {
+                                const src = (y * decoded.width + x) * bpp;
+                                const dst = (y * decoded.width + x) * 4;
+                                if (bpp === 4) {
+                                    rgba[dst] = decoded.pixels[src];
+                                    rgba[dst+1] = decoded.pixels[src+1];
+                                    rgba[dst+2] = decoded.pixels[src+2];
+                                    rgba[dst+3] = decoded.pixels[src+3];
+                                } else if (bpp === 3) {
+                                    rgba[dst] = decoded.pixels[src];
+                                    rgba[dst+1] = decoded.pixels[src+1];
+                                    rgba[dst+2] = decoded.pixels[src+2];
+                                    rgba[dst+3] = 255;
+                                } else if (bpp === 1) {
+                                    const v = decoded.pixels[src];
+                                    rgba[dst] = v;
+                                    rgba[dst+1] = v;
+                                    rgba[dst+2] = v;
+                                    rgba[dst+3] = 255;
+                                }
+                            }
+                        }
+                        currentPixels = rgba;
+                        showPreview(rgba, decoded.width, decoded.height, decoded.metadata, file.name, true);
+                    } catch (err) {
+                        // Not a .pawm — try as regular image
+                        const url = URL.createObjectURL(file);
+                        const img = new Image();
+                        img.onload = function() {
+                            const w = img.width;
+                            const h = img.height;
+                            const tempCanvas = document.createElement('canvas');
+                            tempCanvas.width = w;
+                            tempCanvas.height = h;
+                            const tempCtx = tempCanvas.getContext('2d');
+                            tempCtx.drawImage(img, 0, 0);
+                            const imageData = tempCtx.getImageData(0, 0, w, h);
+                            currentPixels = new Uint8Array(imageData.data);
+                            showPreview(currentPixels, w, h, {}, file.name, false);
+                            URL.revokeObjectURL(url);
+                        };
+                        img.onerror = function() {
+                            setStatus('❌ Failed to load image: ' + file.name, 'error');
+                        };
+                        img.src = url;
+                    }
+                };
+                reader.onerror = function() {
+                    setStatus('❌ Failed to read file', 'error');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            // ===== Download =====
+            function downloadAsPawm() {
+                if (!currentPixels || currentWidth === 0 || currentHeight === 0) return;
+                // Convert RGBA to appropriate depth
+                const depth = 32; // We'll use 32-bit RGBA
+                const bpp = depth / 8;
+                const pixelData = new Uint8Array(currentWidth * currentHeight * bpp);
+                for (let i = 0; i < currentWidth * currentHeight; i++) {
+                    const src = i * 4;
+                    const dst = i * bpp;
+                    pixelData[dst] = currentPixels[src];
+                    pixelData[dst+1] = currentPixels[src+1];
+                    pixelData[dst+2] = currentPixels[src+2];
+                    pixelData[dst+3] = currentPixels[src+3];
+                }
+                const img = {
+                    width: currentWidth,
+                    height: currentHeight,
+                    depth: depth,
+                    metadata: currentMetadata,
+                    pixels: pixelData
+                };
+                const buffer = PawMage.encode(img);
+                const blob = new Blob([buffer], {type: 'application/octet-stream'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = currentFileName.replace(/\.[^.]+$/, '') + '.pawm';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setStatus('✅ Downloaded ' + a.download, 'success');
+            }
+
+            function downloadAsPng() {
+                if (!currentPixels || currentWidth === 0 || currentHeight === 0) return;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = currentWidth;
+                tempCanvas.height = currentHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                const imageData = new ImageData(currentPixels, currentWidth, currentHeight);
+                tempCtx.putImageData(imageData, 0, 0);
+                tempCanvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = currentFileName.replace(/\.[^.]+$/, '') + '.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    setStatus('✅ Downloaded ' + a.download, 'success');
+                }, 'image/png');
+            }
+
+            // ===== Event Listeners =====
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    loadFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length) {
+                    loadFile(e.target.files[0]);
+                }
+                fileInput.value = '';
+            });
+
+            downloadPawm.addEventListener('click', downloadAsPawm);
+            downloadPng.addEventListener('click', downloadAsPng);
+
+            resetBtn.addEventListener('click', resetUI);
+
+            // Drag-and-drop for entire page
+            document.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+            document.addEventListener('drop', function(e) {
+                e.preventDefault();
+            });
+
+            // ===== Set initial status =====
+            setStatus('Ready — drop a file to start');
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!-- pawm-js/demo.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PawMage JS Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; background: #1a1a2e; color: #eee; }
+        canvas { border: 2px solid #e94560; border-radius: 8px; max-width: 100%; }
+        .drop-zone { border: 2px dashed #e94560; padding: 2rem; text-align: center; border-radius: 8px; cursor: pointer; }
+        .drop-zone.dragover { background: #16213e; }
+        .info { background: #16213e; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+        pre { background: #0f0f1a; padding: 1rem; border-radius: 4px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>🐱 PawMage Viewer (JS)</h1>
+
+    <div class="drop-zone" id="dropZone">
+        <p>📁 Drag & drop a .pawm file here</p>
+        <p style="font-size: 0.8rem; opacity: 0.6;">or click to select</p>
+        <input type="file" id="fileInput" accept=".pawm" style="display:none;">
+    </div>
+
+    <div class="info" id="info">
+        <p>No image loaded</p>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script src="pawm.js"></script>
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('canvas');
+        const info = document.getElementById('info');
+
+        // Click to open file picker
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) loadFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) loadFile(files[0]);
+        });
+
+        async function loadFile(file) {
+            try {
+                const img = await PawMage.loadFile(file);
+                PawMage.drawToCanvas(img, canvas);
+
+                info.innerHTML = `
+                    <p><strong>${file.name}</strong></p>
+                    <p>${img.width} × ${img.height} · ${img.depth} bpp</p>
+                    <pre>${JSON.stringify(img.metadata, null, 2)}</pre>
+                `;
+            } catch (err) {
+                info.innerHTML = `<p style="color: #e94560;">Error: ${err.message}</p>`;
+            }
+        }
+
+        // Load demo image if available
+        // (uncomment if you have a demo.pawm in the same folder)
+        // PawMage.loadUrl('demo.pawm').then(img => {
+        //     PawMage.drawToCanvas(img, canvas);
+        //     info.innerHTML = `<p>Demo: ${img.width}×${img.height}</p>`;
+        // }).catch(() => {});
+    </script>
+</body>
+</html>
