@@ -1,47 +1,56 @@
 ; installers/windows/installer.iss
 [Setup]
 AppName=PawMage
-AppVersion=1.0
-DefaultDirName={pf}\PawMage
+AppVersion=1.0.0
+AppPublisher=justdev-chris
+DefaultDirName={autopf}\PawMage
 DefaultGroupName=PawMage
 Compression=lzma2
 SolidCompression=yes
-OutputDir=output
+OutputDir=Output
 OutputBaseFilename=PawMage-Setup
 WizardStyle=modern
-UninstallDisplayIcon={app}\PawMageViewerIcon.ico
 SetupIconFile=..\..\images\ico\PawMageIcon.ico
+UninstallDisplayIcon={app}\PawMageViewerIcon.ico
+ArchitecturesInstallIn64BitMode=x64
+PrivilegesRequired=admin
 
 [Types]
-Name: "custom"; Description: "Select components"; Flags: iscustom
+Name: "full"; Description: "Full installation"
+Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 [Components]
-Name: "libpawm"; Description: "PawMage Core Library (required)"; Types: custom; Flags: fixed
-Name: "convert"; Description: "PawMage CLI Converter (command-line tool)"; Types: custom
-Name: "viewer"; Description: "PawMage GUI Viewer (desktop app)"; Types: custom
+Name: "core"; Description: "PawMage Core Library (required)"; Types: full custom; Flags: fixed
+Name: "convert"; Description: "CLI Converter (pawm-convert)"; Types: full custom
+Name: "viewer"; Description: "GUI Viewer (pawm-view)"; Types: full custom
 
 [Files]
-Source: "..\..\libpawm\libpawm.dll"; DestDir: "{app}"; Components: libpawm
-Source: "..\..\libpawm\libpawm.a"; DestDir: "{app}"; Components: libpawm
-Source: "..\..\libpawm\include\pawm.h"; DestDir: "{app}\include"; Components: libpawm
+; Core (libpawm)
+Source: "..\..\libpawm\libpawm.dll"; DestDir: "{app}"; Components: core
+Source: "..\..\libpawm\libpawm.a"; DestDir: "{app}"; Components: core
+Source: "..\..\libpawm\include\pawm.h"; DestDir: "{app}\include"; Components: core
+
+; CLI Converter
 Source: "..\..\pawm-convert\pawm-convert.exe"; DestDir: "{app}"; Components: convert
+
+; GUI Viewer
 Source: "..\..\pawm-view\dist\pawm-view.exe"; DestDir: "{app}"; Components: viewer
 Source: "..\..\images\ico\PawMageIcon.ico"; DestDir: "{app}"; Components: viewer
 Source: "..\..\images\ico\PawMageConverterIcon.ico"; DestDir: "{app}"; Components: convert
 Source: "..\..\images\ico\PawMageViewerIcon.ico"; DestDir: "{app}"; Components: viewer
 
 [Icons]
-Name: "{group}\PawMage CLI Converter"; Filename: "{app}\pawm-convert.exe"; Components: convert; IconFilename: "{app}\PawMageConverterIcon.ico"
-Name: "{group}\PawMage GUI Viewer"; Filename: "{app}\pawm-view.exe"; Components: viewer; IconFilename: "{app}\PawMageViewerIcon.ico"
+Name: "{group}\PawMage CLI Converter"; Filename: "{app}\pawm-convert.exe"; Components: convert
+Name: "{group}\PawMage GUI Viewer"; Filename: "{app}\pawm-view.exe"; Components: viewer
 Name: "{group}\Uninstall PawMage"; Filename: "{uninstallexe}"
 
 [Registry]
-; File association for .pawm
-Root: HKA; Subkey: "Software\Classes\.pawm"; ValueType: string; ValueName: ""; ValueData: "PawMage.Image"; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\PawMage.Image"; ValueType: string; ValueName: ""; ValueData: "PawMage Image"; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\PawMage.Image\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\PawMageViewerIcon.ico,0"
-Root: HKA; Subkey: "Software\Classes\PawMage.Image\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\pawm-view.exe"" ""%1"""
+; .pawm file association
+Root: HKCR; Subkey: ".pawm"; ValueType: string; ValueName: ""; ValueData: "PawMage.Image"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "PawMage.Image"; ValueType: string; ValueName: ""; ValueData: "PawMage Image File"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "PawMage.Image\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\PawMageViewerIcon.ico,0"
+Root: HKCR; Subkey: "PawMage.Image\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\pawm-view.exe"" ""%1"""
 
 [Run]
-Filename: "{app}\pawm-convert.exe"; Description: "Test PawMage CLI Converter"; Components: convert; Flags: postinstall nowait
-Filename: "{app}\pawm-view.exe"; Description: "Launch PawMage GUI Viewer"; Components: viewer; Flags: postinstall nowait
+Filename: "{app}\pawm-convert.exe"; Description: "Test CLI Converter"; Components: convert; Flags: postinstall nowait skipifsilent
+Filename: "{app}\pawm-view.exe"; Description: "Launch PawMage GUI Viewer"; Components: viewer; Flags: postinstall nowait skipifsilent
