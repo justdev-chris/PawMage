@@ -37,12 +37,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
-        run: choco install innosetup -y
+        run: |
+          choco install innosetup make mingw -y
       - name: Build C parts
         shell: bash
         run: |
-          make -C libpawm
-          make -C pawm-convert
+          mingw32-make -C libpawm
+          mingw32-make -C pawm-convert
       - name: Build GUI Viewer (PyInstaller)
         shell: bash
         working-directory: pawm-view
@@ -59,13 +60,14 @@ jobs:
           path: installers/windows/Output/PawMage-Setup.exe
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          brew install make gcc python3 pyinstaller
+          brew install make gcc
+          python3 -m pip install --upgrade pip setuptools wheel
 
       - name: Build C parts
         run: make -j$(sysctl -n hw.ncpu)
@@ -73,7 +75,7 @@ jobs:
       - name: Build GUI Viewer (PyInstaller)
         working-directory: pawm-view
         run: |
-          pip install -r requirements.txt
+          python3 -m pip install -r requirements.txt pyinstaller
           pyinstaller --onefile --windowed --noconsole --icon=../images/ico/PawMageViewerIcon.ico viewer.py -n pawm-view
 
       - name: Create macOS .app Bundle
