@@ -13,7 +13,7 @@ jobs:
 
       - name: Install tools
         run: |
-          choco install make mingw-w64 innosetup -y
+          choco install make mingw innosetup -y
 
       - name: Build C parts
         shell: bash
