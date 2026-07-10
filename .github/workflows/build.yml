@@ -1,112 +1,60 @@
-name: PawMage - Full Cross-Platform Build
+name: PawMage Windows Build
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          sudo apt-get update && sudo apt-get install -y build-essential make gcc g++ python3-pip fakeroot dpkg-dev
-          make -j$(nproc)
-      - name: Package .deb
-        run: |
-          mkdir -p build-deb/usr/bin build-deb/DEBIAN
-          cp pawm-convert/pawm-convert build-deb/usr/bin/
-          cat > build-deb/DEBIAN/control << EOF
-          Package: pawmage
-          Version: 1.0.0
-          Maintainer: justdev-chris
-          Architecture: amd64
-          Description: PawMage lossless image format tools
-          EOF
-          dpkg-deb --build build-deb pawmage-linux.deb
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pawmage-linux
-          path: pawmage-linux.deb
-
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install tools
         run: |
-          choco install innosetup make mingw -y
+          choco install make mingw-w64 innosetup -y
+
       - name: Build C parts
         shell: bash
         run: |
           mingw32-make -C libpawm
           mingw32-make -C pawm-convert
+
+      - name: Generate test image and run converter
+        shell: powershell
+        run: |
+          # Create a 1x1 red PNG using .NET's System.Drawing
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap(1, 1)
+          $bmp.SetPixel(0, 0, [System.Drawing.Color]::Red)
+          $bmp.Save("test.png")
+          $bmp.Dispose()
+
+          # Run the converter
+          .\pawm-convert\pawm-convert.exe test.png test.pawm
+
+          # Check if output exists
+          if (Test-Path test.pawm) {
+            Write-Host "✅ Converter succeeded!"
+          } else {
+            Write-Host "❌ Converter failed — no output file"
+            exit 1
+          }
+
       - name: Build GUI Viewer (PyInstaller)
         shell: bash
         working-directory: pawm-view
         run: |
           pip install -r requirements.txt pyinstaller
           pyinstaller --onefile --windowed --noconsole --icon=../images/ico/PawMageViewerIcon.ico viewer.py -n pawm-view
-      - name: Build Installer
+
+      - name: Build Inno Setup installer
         shell: cmd
         run: |
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\windows\installer.iss
+
       - uses: actions/upload-artifact@v4
         with:
           name: pawmage-windows
           path: installers/windows/Output/PawMage-Setup.exe
-
-  build-macos:
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          brew install make gcc
-          python3 -m pip install --upgrade pip setuptools wheel
-
-      - name: Build C parts
-        run: make -j$(sysctl -n hw.ncpu)
-
-      - name: Build GUI Viewer (PyInstaller)
-        working-directory: pawm-view
-        run: |
-          python3 -m pip install -r requirements.txt pyinstaller
-          pyinstaller --onefile --windowed --noconsole --icon=../images/ico/PawMageViewerIcon.ico viewer.py -n pawm-view
-
-      - name: Create macOS .app Bundle
-        run: |
-          mkdir -p "PawMage.app/Contents/MacOS" "PawMage.app/Contents/Resources"
-          cp pawm-view/dist/pawm-view "PawMage.app/Contents/MacOS/PawMage"
-          cat > "PawMage.app/Contents/Info.plist" << 'EOL'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleIdentifier</key><string>com.pawmage.app</string>
-              <key>CFBundleName</key><string>PawMage</string>
-              <key>CFBundleVersion</key><string>1.0.0</string>
-              <key>CFBundleExecutable</key><string>PawMage</string>
-              <key>CFBundleIconFile</key><string>PawMageIcon.icns</string>
-          </dict>
-          </plist>
-          EOL
-
-      - name: Build .pkg installer
-        run: |
-          pkgbuild --root PawMage.app \
-                   --identifier com.pawmage.app \
-                   --version 1.0.0 \
-                   --install-location /Applications \
-                   PawMage.pkg
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pawmage-macos
-          path: |
-            PawMage.app
-            PawMage.pkg
